@@ -1,0 +1,22 @@
+# Blueprint for Render's "New > Blueprint" one-click deploy.
+# Push this project to a GitHub repo, then point Render at it — it will read
+# this file and create the service automatically. You'll just be asked to
+# paste in ANTHROPIC_API_KEY (and optionally ADMIN_KEY) in Render's dashboard.
+# Double-check the current Blueprint spec at https://render.com/docs/blueprint-spec
+# in case Render has changed the format since this was written.
+services:
+  - type: web
+    name: scholarship-case-desk
+    env: node
+    plan: free
+    buildCommand: ""
+    startCommand: "node server.js"
+    envVars:
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: ADMIN_KEY
+        sync: false
+      - key: CLAUDE_MODEL
+        value: claude-sonnet-5
+      - key: LOG_CASES
+        value: "true"

@@ -1,0 +1,13 @@
+{
+  "name": "scholarship-case-desk",
+  "version": "1.0.0",
+  "description": "AI-assisted tool that helps students screen scholarship offers for scam patterns before they act on them. Zero dependencies — just Node.js.",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "license": "MIT"
+}

@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Case Desk — Scholarship Verification</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;0,9..144,700;1,9..144,500&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <div class="eyebrow">Case Desk · Scholarship Verification Unit</div>
+    <h1>Is this scholarship real —<br>or working you for something?</h1>
+    <p class="sub">Paste an offer, upload a screenshot of the email or listing, or browse the field guide. Every case gets a fast pattern scan plus a full AI review before you act on it.</p>
+    <div class="case-no" id="case-no"></div>
+  </header>
+
+  <nav class="tabs">
+    <button class="tab-btn active" data-tab="text"><span class="num">01</span>Submit Text / Listing</button>
+    <button class="tab-btn" data-tab="image"><span class="num">02</span>Submit Screenshot</button>
+    <button class="tab-btn" data-tab="guide"><span class="num">03</span>Field Guide</button>
+  </nav>
+
+  <!-- TAB 1: TEXT -->
+  <section class="panel active" id="panel-text">
+    <div class="folder">
+      <div class="folder-body">
+        <div class="folder-label">Evidence — Pasted Text</div>
+        <h2>Open a case file</h2>
+        <textarea id="text-input" placeholder="Paste the scholarship listing, email, or message here — the more of the original wording, the better the read. Include any sender info, requirements, and deadlines mentioned."></textarea>
+        <p class="hint">This tool can't browse a URL for you — copy the actual page or email text in rather than just pasting a link.</p>
+        <div class="btn-row">
+          <button class="btn" id="text-analyze-btn">Open Case File</button>
+          <button class="btn btn-ghost" id="text-reset-btn">New Case</button>
+        </div>
+        <div class="loading-row" id="text-loading" style="display:none;">
+          <div class="spinner"></div><span>Running pattern scan and AI review…</span>
+        </div>
+        <div class="error-box" id="text-error" style="display:none;"></div>
+        <div class="results" id="text-results"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- TAB 2: IMAGE -->
+  <section class="panel" id="panel-image">
+    <div class="folder">
+      <div class="folder-body">
+        <div class="folder-label">Evidence — Screenshot / Photo</div>
+        <h2>Submit a screenshot</h2>
+        <div class="dropzone" id="dropzone">
+          <div class="dz-title">Click to choose an image</div>
+          <p>A screenshot of the email, text message, or webpage. JPG or PNG.</p>
+          <input type="file" id="file-input" accept="image/*" style="display:none;">
+        </div>
+        <div id="preview-wrap"><img id="preview-img" alt="Uploaded screenshot preview"></div>
+        <div class="btn-row">
+          <button class="btn" id="image-analyze-btn" disabled>Analyze Evidence</button>
+          <button class="btn btn-ghost" id="image-reset-btn">New Case</button>
+        </div>
+        <div class="loading-row" id="image-loading" style="display:none;">
+          <div class="spinner"></div><span>Reading image and running review…</span>
+        </div>
+        <div class="error-box" id="image-error" style="display:none;"></div>
+        <div class="results" id="image-results"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- TAB 3: FIELD GUIDE -->
+  <section class="panel" id="panel-guide">
+    <div class="folder">
+      <div class="folder-body">
+        <div class="folder-label">Reference</div>
+        <h2>Field guide</h2>
+
+        <div class="guide-grid">
+          <div class="guide-col flags">
+            <h3>Common red flags</h3>
+            <ul>
+              <li>Any fee to "apply," "process," or "release" your award — legitimate scholarships never charge you.</li>
+              <li>Requests for a bank account, SSN, or card number before you've even been chosen.</li>
+              <li>"You've already won" or "guaranteed" language with no actual application.</li>
+              <li>Pressure to respond within hours or the offer "expires."</li>
+              <li>Payment demanded by wire transfer, gift card, or payment app.</li>
+              <li>Vague sponsor name with no verifiable school, foundation, or company behind it.</li>
+              <li>Contact only through a personal email address rather than an institutional one.</li>
+            </ul>
+          </div>
+          <div class="guide-col signs">
+            <h3>Signs of the real thing</h3>
+            <ul>
+              <li>A real application: essay, transcript, recommendation letters, or a form with a clear deadline.</li>
+              <li>A named, searchable sponsor — a school, company, foundation, or civic group with an independent web presence.</li>
+              <li>Contact from an institutional domain (.edu, a school district, or the sponsor's own verified domain).</li>
+              <li>Selection criteria you can read in advance, not just "everyone qualifies."</li>
+              <li>Funds paid to your school directly, or through a standard, traceable method.</li>
+              <li>Your counselor, financial aid office, or a search engine turns up independent mentions of it.</li>
+            </ul>
+          </div>
+        </div>
+
+        <h3 style="font-family:'Fraunces',serif;font-size:17px;margin:24px 0 4px;">Trustworthy places to search</h3>
+        <div class="resource-list">
+          <div class="resource"><div><div class="name">Federal Student Aid</div><div class="desc">U.S. Dept. of Education — official aid info</div></div><div class="url">studentaid.gov</div></div>
+          <div class="resource"><div><div class="name">BigFuture</div><div class="desc">College Board's scholarship search</div></div><div class="url">bigfuture.collegeboard.org</div></div>
+          <div class="resource"><div><div class="name">Fastweb</div><div class="desc">Long-running scholarship matching database</div></div><div class="url">fastweb.com</div></div>
+          <div class="resource"><div><div class="name">Scholarships.com</div><div class="desc">Searchable scholarship directory</div></div><div class="url">scholarships.com</div></div>
+          <div class="resource"><div><div class="name">Your school's aid office</div><div class="desc">Often the fastest way to verify a specific offer</div></div><div class="url">ask directly</div></div>
+        </div>
+
+        <div class="report-box">
+          <h3>If you've spotted a scam</h3>
+          <p>Report it to the FTC at <strong>reportfraud.ftc.gov</strong>, and let your school's financial aid office know so they can warn other students.</p>
+          <p>If you already shared bank or card details, contact your bank immediately to flag possible fraud.</p>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    Screening signals only — not legal or financial certainty. Always verify directly with the school or sponsor before paying anything or sharing personal information.
+    <br><a href="admin.html" style="color:#5A6094;">Staff dashboard</a>
+  </footer>
+</div>
+
+<script src="rules.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

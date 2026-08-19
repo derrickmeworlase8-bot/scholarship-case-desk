@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Case Desk — Staff Dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;0,9..144,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+<style>
+  .dash-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:24px;}
+  @media(max-width:680px){.dash-grid{grid-template-columns:1fr;}}
+  .stat-card{background:var(--paper);border-radius:5px;padding:18px 20px;box-shadow:var(--shadow);}
+  .stat-card .num{font-family:'Fraunces',serif;font-size:30px;color:var(--text-ink);}
+  .stat-card .label{font-family:'JetBrains Mono',monospace;font-size:11px;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-muted);margin-top:4px;}
+  table{width:100%;border-collapse:collapse;font-size:13px;}
+  th,td{text-align:left;padding:9px 10px;border-bottom:1px solid var(--line);vertical-align:top;}
+  th{font-family:'JetBrains Mono',monospace;font-size:10.5px;text-transform:uppercase;letter-spacing:0.06em;color:var(--text-muted);}
+  td.excerpt{max-width:340px;color:var(--text-muted);font-size:12.5px;}
+  .badge{font-family:'JetBrains Mono',monospace;font-size:11px;padding:3px 8px;border-radius:3px;white-space:nowrap;}
+  .badge.scam{background:rgba(174,58,46,0.1);color:var(--stamp-red);}
+  .badge.legit{background:rgba(47,125,92,0.1);color:var(--stamp-green);}
+  .badge.uncertain{background:rgba(196,128,42,0.1);color:var(--stamp-amber);}
+  .key-row{display:flex;gap:10px;margin-bottom:24px;flex-wrap:wrap;}
+  .key-row input{
+    flex:1;min-width:220px;padding:11px 14px;border-radius:3px;border:1px solid var(--line);
+    background:#FFFDF8;color:var(--text-ink);font-family:'JetBrains Mono',monospace;font-size:13px;
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="eyebrow">Case Desk · Staff Only</div>
+    <h1>Dashboard</h1>
+    <p class="sub">Recent submissions and patterns across cases. Requires the admin key set in your server's <code>.env</code> file.</p>
+  </header>
+
+  <div class="key-row">
+    <input type="password" id="admin-key" placeholder="Admin key">
+    <button class="btn" id="load-btn">Load</button>
+  </div>
+
+  <div class="error-box" id="dash-error" style="display:none;"></div>
+
+  <div id="dash-content" style="display:none;">
+    <div class="dash-grid">
+      <div class="stat-card"><div class="num" id="stat-total">—</div><div class="label">Total cases logged</div></div>
+      <div class="stat-card"><div class="num" id="stat-scam">—</div><div class="label">Flagged likely scam</div></div>
+      <div class="stat-card"><div class="num" id="stat-legit">—</div><div class="label">Flagged likely legitimate</div></div>
+    </div>
+
+    <div class="folder" style="margin-bottom:24px;">
+      <div class="folder-body">
+        <h2 style="font-size:17px;">Most common red flags</h2>
+        <div class="tag-row" id="top-flags"></div>
+      </div>
+    </div>
+
+    <div class="folder">
+      <div class="folder-body">
+        <h2 style="font-size:17px;">Recent cases</h2>
+        <div style="overflow-x:auto;">
+          <table>
+            <thead>
+              <tr><th>Time</th><th>Mode</th><th>Verdict</th><th>Conf.</th><th>Scan</th><th>Excerpt</th></tr>
+            </thead>
+            <tbody id="cases-body"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <footer><a href="index.html" style="color:#5A6094;">Back to Case Desk</a></footer>
+</div>
+
+<script>
+const keyInput = document.getElementById('admin-key');
+const loadBtn = document.getElementById('load-btn');
+const dashError = document.getElementById('dash-error');
+const dashContent = document.getElementById('dash-content');
+
+// Convenience only — remembers the key for this browser tab session so staff
+// don't have to retype it on every reload. Cleared when the tab closes.
+const savedKey = sessionStorage.getItem('caseDeskAdminKey');
+if (savedKey) keyInput.value = savedKey;
+
+function badgeHTML(verdict) {
+  let cls = 'uncertain', label = verdict || 'unknown';
+  if (verdict === 'likely scam') { cls = 'scam'; label = 'Likely scam'; }
+  else if (verdict === 'likely legitimate') { cls = 'legit'; label = 'Likely legitimate'; }
+  else if (verdict === 'uncertain') { label = 'Uncertain'; }
+  return `<span class="badge ${cls}">${label}</span>`;
+}
+
+async function load() {
+  const key = keyInput.value.trim();
+  dashError.style.display = 'none';
+  if (!key) {
+    dashError.textContent = 'Enter the admin key from your server\'s .env file.';
+    dashError.style.display = 'block';
+    return;
+  }
+  sessionStorage.setItem('caseDeskAdminKey', key);
+  loadBtn.disabled = true;
+  loadBtn.textContent = 'Loading…';
+
+  try {
+    const headers = { 'x-admin-key': key };
+    const [statsRes, casesRes] = await Promise.all([
+      fetch('/api/admin/stats', { headers }),
+      fetch('/api/admin/cases', { headers })
+    ]);
+    const stats = await statsRes.json();
+    const cases = await casesRes.json();
+    if (!statsRes.ok) throw new Error(stats.error || 'Could not load stats.');
+    if (!casesRes.ok) throw new Error(cases.error || 'Could not load cases.');
+
+    document.getElementById('stat-total').textContent = stats.total;
+    const scamCount = (stats.byVerdict.find(v => v.verdict === 'likely scam') || {}).n || 0;
+    const legitCount = (stats.byVerdict.find(v => v.verdict === 'likely legitimate') || {}).n || 0;
+    document.getElementById('stat-scam').textContent = scamCount;
+    document.getElementById('stat-legit').textContent = legitCount;
+
+    document.getElementById('top-flags').innerHTML = stats.topFlags.length
+      ? stats.topFlags.map(f => `<span class="tag">${f.label} · ${f.count}</span>`).join('')
+      : '<p class="no-flags">No flags logged yet.</p>';
+
+    document.getElementById('cases-body').innerHTML = cases.map(c => `
+      <tr>
+        <td>${new Date(c.created_at).toLocaleString()}</td>
+        <td>${c.mode}</td>
+        <td>${badgeHTML(c.ai_verdict)}</td>
+        <td>${c.ai_confidence ?? '—'}</td>
+        <td>${c.scan_score ?? '—'}</td>
+        <td class="excerpt">${(c.excerpt || '').replace(/</g, '&lt;')}</td>
+      </tr>
+    `).join('') || '<tr><td colspan="6" class="no-flags">No cases logged yet.</td></tr>';
+
+    dashContent.style.display = 'block';
+  } catch (err) {
+    dashError.textContent = err.message || 'Something went wrong loading the dashboard.';
+    dashError.style.display = 'block';
+    dashContent.style.display = 'none';
+  }
+
+  loadBtn.disabled = false;
+  loadBtn.textContent = 'Load';
+}
+
+loadBtn.addEventListener('click', load);
+keyInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') load(); });
+if (savedKey) load();
+</script>
+</body>
+</html>
