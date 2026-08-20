@@ -123,8 +123,11 @@ textBtn.addEventListener('click', async () => {
   const scan = runScan(text);
   let html = scanBlockHTML(scan);
 
+  const school = document.getElementById('text-school').value.trim();
+  const country = document.getElementById('text-country').value;
+
   try {
-    const ai = await callBackend({ mode: 'text', text });
+    const ai = await callBackend({ mode: 'text', text, school, country });
     html += aiBlockHTML(ai);
   } catch (err) {
     textError.textContent = err.message || 'Something went wrong running the AI review.';
@@ -139,6 +142,8 @@ textBtn.addEventListener('click', async () => {
 
 document.getElementById('text-reset-btn').addEventListener('click', () => {
   textInput.value = '';
+  document.getElementById('text-school').value = '';
+  document.getElementById('text-country').value = '';
   textResults.classList.remove('show');
   textResults.innerHTML = '';
   textError.style.display = 'none';
@@ -188,7 +193,9 @@ imageBtn.addEventListener('click', async () => {
   try {
     const base64 = await fileToBase64(selectedFile);
     const mediaType = selectedFile.type || 'image/png';
-    const ai = await callBackend({ mode: 'image', image: { mediaType, data: base64 } });
+    const school = document.getElementById('image-school').value.trim();
+    const country = document.getElementById('image-country').value;
+    const ai = await callBackend({ mode: 'image', image: { mediaType, data: base64 }, school, country });
     const scanSource = (ai.transcribed || ai.reasoning || '') + ' ' + JSON.stringify(ai.redFlags || []);
     const scan = runScan(scanSource);
     imageResults.innerHTML = scanBlockHTML(scan) + aiBlockHTML(ai);
@@ -205,10 +212,53 @@ imageBtn.addEventListener('click', async () => {
 document.getElementById('image-reset-btn').addEventListener('click', () => {
   selectedFile = null;
   fileInput.value = '';
+  document.getElementById('image-school').value = '';
+  document.getElementById('image-country').value = '';
   previewWrap.style.display = 'none';
   dropzone.classList.remove('has-file');
   imageBtn.disabled = true;
   imageResults.classList.remove('show');
   imageResults.innerHTML = '';
   imageError.style.display = 'none';
+});
+
+// ---------- CONTACT YOUR SCHOOL TAB WIRING ----------
+// Uses SCHOOL_DIRECTORY / findSchool / buildSearchLinks from school-directory.js.
+// Entirely client-side — no backend call, no AI cost.
+const COUNTRY_LABELS = { us: 'United States', ca: 'Canada', uk: 'United Kingdom', other: 'Other' };
+
+document.getElementById('contact-find-btn').addEventListener('click', () => {
+  const school = document.getElementById('contact-school').value.trim();
+  const country = document.getElementById('contact-country').value;
+  const resultsEl = document.getElementById('contact-results');
+
+  if (!school) {
+    resultsEl.innerHTML = `<div class="error-box" style="display:block;">Enter a school name first.</div>`;
+    return;
+  }
+
+  const match = findSchool(school);
+  const links = buildSearchLinks(school, country);
+
+  let html = '';
+  if (match) {
+    html += `
+      <div class="school-card">
+        <div class="name">${escapeHTML(match.name)}</div>
+        <a class="school-link" href="${match.url}" target="_blank" rel="noopener">Official financial aid / student funding page →</a>
+        <p class="verify-note">Before trusting this, check that the page you land on is on ${escapeHTML(match.name)}'s own official domain in your browser's address bar. Links can go stale — if this one looks wrong, use the search links below instead.</p>
+      </div>`;
+  }
+
+  html += `
+    <div class="school-card">
+      <div class="name">${match ? 'Search for more, or a specific department' : `Search for ${escapeHTML(school)}'s official page`}</div>
+      <p style="font-size:13px;color:var(--text-muted);margin:0 0 4px;">Scoped to ${escapeHTML(COUNTRY_LABELS[country] || 'official education')} domains where possible — always confirm the result is your school's own site before trusting any contact info on it.</p>
+      <div class="search-links">
+        <a href="${links.google}" target="_blank" rel="noopener">Search Google →</a>
+        <a href="${links.bing}" target="_blank" rel="noopener">Search Bing →</a>
+      </div>
+    </div>`;
+
+  resultsEl.innerHTML = html;
 });

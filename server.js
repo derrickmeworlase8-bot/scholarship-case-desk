@@ -33,9 +33,17 @@ function loadEnvFile(filePath) {
 
 // Used everywhere a "do we have a real key?" check happens, so the
 // .env.example placeholder is never mistaken for a configured key.
-function hasRealApiKey() {
-  const key = process.env.ANTHROPIC_API_KEY;
-  return Boolean(key) && key !== 'your-api-key-here';
+function hasRealKey(varName) {
+  const key = process.env[varName];
+  return Boolean(key) && !key.startsWith('your-') && !key.startsWith('choose-');
+}
+
+// Prefer Anthropic (higher quality) if both are set; fall back to the free
+// Groq tier; null means no AI provider is configured at all yet.
+function getProvider() {
+  if (hasRealKey('ANTHROPIC_API_KEY')) return 'anthropic';
+  if (hasRealKey('GROQ_API_KEY')) return 'groq';
+  return null;
 }
 
 function ensureEnvFileExists() {
@@ -44,58 +52,84 @@ function ensureEnvFileExists() {
   }
 }
 
-function saveKeyToEnvFile(key) {
+function saveKeyToEnvFile(varName, key) {
   let content = fs.existsSync(ENV_PATH) ? fs.readFileSync(ENV_PATH, 'utf8') : '';
-  if (/^ANTHROPIC_API_KEY=.*$/m.test(content)) {
-    content = content.replace(/^ANTHROPIC_API_KEY=.*$/m, `ANTHROPIC_API_KEY=${key}`);
+  const re = new RegExp(`^${varName}=.*$`, 'm');
+  if (re.test(content)) {
+    content = content.replace(re, `${varName}=${key}`);
   } else {
-    content += `${content.endsWith('\n') || !content ? '' : '\n'}ANTHROPIC_API_KEY=${key}\n`;
+    content += `${content.endsWith('\n') || !content ? '' : '\n'}${varName}=${key}\n`;
   }
   fs.writeFileSync(ENV_PATH, content, 'utf8');
 }
 
 // ---------------------------------------------------------------------------
-// First-run wizard: if there's no API key yet and this is an interactive
-// terminal, ask for one once and save it. Non-interactive runs (Docker,
-// hosting platforms) just warn and continue — the AI review will error
-// clearly until ANTHROPIC_API_KEY is set as an environment variable there.
+// First-run wizard: if there's no key yet and this is an interactive
+// terminal, ask for one once and save it — auto-detecting Groq (free, keys
+// start with gsk_) vs Anthropic (paid, keys start with sk-ant-). Non-
+// interactive runs (Docker, hosting platforms) just warn and continue.
 // ---------------------------------------------------------------------------
 function promptForApiKeyIfMissing() {
   return new Promise((resolve) => {
-    if (hasRealApiKey()) {
+    if (getProvider()) {
       resolve();
       return;
     }
     if (!process.stdin.isTTY) {
-      console.warn('\n[warning] No ANTHROPIC_API_KEY set, and this isn\'t an interactive terminal.');
-      console.warn('Set ANTHROPIC_API_KEY as an environment variable (or in .env) and restart.');
-      console.warn('The automated pattern scan will still work without it — only AI Case Review needs a key.\n');
+      console.warn('\n[warning] No AI provider key set, and this isn\'t an interactive terminal.');
+      console.warn('Set GROQ_API_KEY (free) or ANTHROPIC_API_KEY (paid) as an environment variable and restart.');
+      console.warn('The automated pattern scan will still work without either — only AI Case Review needs one.\n');
       resolve();
       return;
     }
     console.log('\n──────────────────────────────────────────────────────────');
-    console.log('No Anthropic API key found yet.');
-    console.log('Get one free at https://console.anthropic.com  →  Settings → API Keys → Create Key');
-    console.log('(Automated Pattern Scan works fine without one — only AI Case Review needs it.)');
+    console.log('No AI provider key found yet.');
+    console.log('Free, no card required: console.groq.com → API Keys → Create Key (starts with gsk_)');
+    console.log('Higher-quality, paid:   console.anthropic.com → Settings → API Keys (starts with sk-ant-)');
+    console.log('(Automated Pattern Scan works fine without either — only AI Case Review needs one.)');
     console.log('──────────────────────────────────────────────────────────\n');
     const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
-    rl.question('Paste your API key now (or press Enter to skip for now): ', (answer) => {
-      rl.close();
+    rl.question('Paste a key now (or press Enter to skip for now): ', (answer) => {
       const key = answer.trim();
-      if (key) {
-        saveKeyToEnvFile(key);
-        process.env.ANTHROPIC_API_KEY = key;
-        console.log('Saved — you won\'t be asked again on this computer.\n');
-      } else {
-        console.log('Skipped. Add ANTHROPIC_API_KEY to .env any time and restart.\n');
+      if (!key) {
+        rl.close();
+        console.log('Skipped. Add GROQ_API_KEY or ANTHROPIC_API_KEY to .env any time and restart.\n');
+        resolve();
+        return;
       }
-      resolve();
+      if (key.startsWith('sk-ant-')) {
+        rl.close();
+        saveKeyToEnvFile('ANTHROPIC_API_KEY', key);
+        process.env.ANTHROPIC_API_KEY = key;
+        console.log('Saved as an Anthropic key — you won\'t be asked again on this computer.\n');
+        resolve();
+      } else if (key.startsWith('gsk_')) {
+        rl.close();
+        saveKeyToEnvFile('GROQ_API_KEY', key);
+        process.env.GROQ_API_KEY = key;
+        console.log('Saved as a free Groq key — you won\'t be asked again on this computer.\n');
+        resolve();
+      } else {
+        rl.question('Couldn\'t tell from the format — is that a (g)roq or (a)nthropic key? ', (which) => {
+          rl.close();
+          if (which.trim().toLowerCase().startsWith('g')) {
+            saveKeyToEnvFile('GROQ_API_KEY', key);
+            process.env.GROQ_API_KEY = key;
+            console.log('Saved as a Groq key.\n');
+          } else {
+            saveKeyToEnvFile('ANTHROPIC_API_KEY', key);
+            process.env.ANTHROPIC_API_KEY = key;
+            console.log('Saved as an Anthropic key.\n');
+          }
+          resolve();
+        });
+      }
     });
   });
 }
 
 // ---------------------------------------------------------------------------
-// AI review — calls the Anthropic API directly with Node's built-in fetch.
+// AI review — two interchangeable providers behind one interface.
 // ---------------------------------------------------------------------------
 const SYSTEM_PROMPT = `You are a scholarship-fraud screening assistant helping a student decide whether a scholarship offer is trustworthy. You will be given text describing a scholarship listing, email, or message (it may have been transcribed from an image).
 
@@ -110,15 +144,15 @@ Respond with ONLY a raw JSON object, no markdown fences, no preamble, no comment
   "transcribed": "if this text was read from an image, the transcribed text; otherwise omit this field"
 }
 
-Base the assessment on known scholarship-scam patterns: any upfront payment, requests for bank/SSN/wire details, guaranteed-win claims, artificial urgency, unsolicited "you've been selected" contact, vague or unverifiable sponsors, and no real application process. Weigh these against signs of legitimacy: a real application process, a named and verifiable sponsor, institutional contact channels, and realistic selection criteria. Do not falsely flag ordinary legitimate scholarships that simply have standard application steps. If the text is too short or unclear to assess, say so plainly in "reasoning" and use "uncertain".`;
+Base the assessment on known scholarship-scam patterns: any upfront payment, requests for bank/SSN/wire details, guaranteed-win claims, artificial urgency, unsolicited "you've been selected" contact, vague or unverifiable sponsors, and no real application process. Weigh these against signs of legitimacy: a real application process, a named and verifiable sponsor, institutional contact channels, and realistic selection criteria. If the message includes a line noting student-provided context (a school and/or country), use it only to check consistency between the offer's claims and that context — a claimed affiliation that doesn't fit is a red flag, but missing context is never itself suspicious. Do not falsely flag ordinary legitimate scholarships that simply have standard application steps. If the text is too short or unclear to assess, say so plainly in "reasoning" and use "uncertain".`;
+
+function extractJSON(raw) {
+  const cleaned = (raw || '').trim().replace(/^```json/i, '').replace(/^```/, '').replace(/```$/, '').trim();
+  return JSON.parse(cleaned);
+}
 
 async function callAnthropic(contentBlocks) {
   const apiKey = process.env.ANTHROPIC_API_KEY;
-  if (!hasRealApiKey()) {
-    const err = new Error('No Anthropic API key is configured on this server yet. Add ANTHROPIC_API_KEY to .env and restart.');
-    err.statusCode = 500;
-    throw err;
-  }
   const model = process.env.CLAUDE_MODEL || 'claude-sonnet-5';
   const resp = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
@@ -141,15 +175,95 @@ async function callAnthropic(contentBlocks) {
     throw err;
   }
   const textParts = (data.content || []).filter((b) => b.type === 'text').map((b) => b.text);
-  let raw = textParts.join('\n').trim();
-  raw = raw.replace(/^```json/i, '').replace(/^```/, '').replace(/```$/, '').trim();
   try {
-    return JSON.parse(raw);
+    return extractJSON(textParts.join('\n'));
   } catch (e) {
     const err = new Error('The AI review returned an unreadable response. Please try again.');
     err.statusCode = 502;
     throw err;
   }
+}
+
+// Groq's API is OpenAI-compatible — same request shape, different host/auth.
+async function callGroq(messages, needsVision) {
+  const apiKey = process.env.GROQ_API_KEY;
+  const model = needsVision ? process.env.GROQ_VISION_MODEL : (process.env.GROQ_MODEL || 'llama-3.3-70b-versatile');
+  if (needsVision && !model) {
+    const err = new Error("Image screening isn't set up on the free provider for this deployment yet. Paste the text instead, or ask whoever runs this site to set GROQ_VISION_MODEL (or add an Anthropic key) to enable image review.");
+    err.statusCode = 501;
+    throw err;
+  }
+  const resp = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${apiKey}`
+    },
+    body: JSON.stringify({ model, max_tokens: 1000, messages })
+  });
+  const data = await resp.json();
+  if (!resp.ok) {
+    const err = new Error((data.error && data.error.message) || 'The Groq API returned an error.');
+    err.statusCode = resp.status >= 400 && resp.status < 600 ? resp.status : 502;
+    throw err;
+  }
+  const raw = (data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content) || '';
+  try {
+    return extractJSON(raw);
+  } catch (e) {
+    const err = new Error('The AI review returned an unreadable response. Please try again.');
+    err.statusCode = 502;
+    throw err;
+  }
+}
+
+function buildContextNote(school, country) {
+  const countryNames = { us: 'United States', ca: 'Canada', uk: 'United Kingdom', other: 'another country' };
+  const parts = [];
+  if (school) parts.push(`school: ${school}`);
+  if (country && countryNames[country]) parts.push(`country: ${countryNames[country]}`);
+  if (!parts.length) return '';
+  return `Student-provided context (${parts.join(', ')}) — use this to check whether the offer's claimed sponsor and details are consistent with this school/country; a mismatch is itself a red flag, but the absence of context is not.\n\n`;
+}
+
+async function runAIReview(mode, text, image, school, country) {
+  const provider = getProvider();
+  if (!provider) {
+    return {
+      aiUnavailable: true,
+      message: "AI Case Review isn't turned on for this site yet — the person running it hasn't added a Groq (free) or Anthropic key. The Automated Pattern Scan above still works on its own."
+    };
+  }
+
+  const contextNote = buildContextNote(school, country);
+
+  if (provider === 'anthropic') {
+    const contentBlocks = mode === 'image'
+      ? [
+          { type: 'image', source: { type: 'base64', media_type: image.mediaType, data: image.data } },
+          { type: 'text', text: contextNote + 'Transcribe the visible offer text from this image, then screen it as instructed.' }
+        ]
+      : [{ type: 'text', text: contextNote + text.trim() }];
+    return callAnthropic(contentBlocks);
+  }
+
+  // provider === 'groq'
+  if (mode === 'image') {
+    const dataUrl = `data:${image.mediaType};base64,${image.data}`;
+    const messages = [
+      { role: 'system', content: SYSTEM_PROMPT },
+      { role: 'user', content: [
+        { type: 'text', text: contextNote + 'Transcribe the visible offer text from this image, then screen it as instructed.' },
+        { type: 'image_url', image_url: { url: dataUrl } }
+      ] }
+    ];
+    return callGroq(messages, true);
+  }
+  const messages = [
+    { role: 'system', content: SYSTEM_PROMPT },
+    { role: 'user', content: contextNote + text.trim() }
+  ];
+  return callGroq(messages, false);
 }
 
 // ---------------------------------------------------------------------------
@@ -261,10 +375,12 @@ async function handleRequest(req, res) {
     const urlPath = req.url.split('?')[0];
 
     if (req.method === 'GET' && urlPath === '/api/health') {
+      const provider = getProvider();
       sendJSON(res, 200, {
         status: 'ok',
-        model: process.env.CLAUDE_MODEL || 'claude-sonnet-5',
-        apiKeyConfigured: hasRealApiKey()
+        provider: provider || 'none',
+        model: provider === 'groq' ? (process.env.GROQ_MODEL || 'llama-3.3-70b-versatile') : (process.env.CLAUDE_MODEL || 'claude-sonnet-5'),
+        apiKeyConfigured: Boolean(provider)
       });
       return;
     }
@@ -284,41 +400,30 @@ async function handleRequest(req, res) {
         return;
       }
 
-      const { mode, text, image } = body || {};
-      let contentBlocks;
+      const { mode, text, image, school, country } = body || {};
       if (mode === 'image') {
         if (!image || !image.data || !image.mediaType) {
           sendJSON(res, 400, { error: 'Missing image data.' });
           return;
         }
-        contentBlocks = [
-          { type: 'image', source: { type: 'base64', media_type: image.mediaType, data: image.data } },
-          { type: 'text', text: 'Transcribe the visible offer text from this image, then screen it as instructed.' }
-        ];
       } else {
         if (!text || text.trim().length < 20) {
           sendJSON(res, 400, { error: 'Please provide at least a sentence or two of the actual offer text.' });
           return;
         }
-        contentBlocks = [{ type: 'text', text: text.trim() }];
-      }
-
-      // No key configured yet? Don't error — just say so calmly. The
-      // Automated Pattern Scan (computed client-side) still works fully.
-      if (!hasRealApiKey()) {
-        sendJSON(res, 200, {
-          aiUnavailable: true,
-          message: "AI Case Review isn't turned on for this site yet — the person running it hasn't added an Anthropic API key. The Automated Pattern Scan above still works on its own."
-        });
-        return;
       }
 
       let parsed;
       try {
-        parsed = await callAnthropic(contentBlocks);
+        parsed = await runAIReview(mode, text, image, school, country);
       } catch (e) {
         console.error('Analyze error:', e.message);
         sendJSON(res, e.statusCode || 500, { error: e.message });
+        return;
+      }
+
+      if (parsed.aiUnavailable) {
+        sendJSON(res, 200, parsed);
         return;
       }
 
@@ -395,8 +500,9 @@ async function main() {
   const server = http.createServer((req, res) => { handleRequest(req, res); });
   server.listen(PORT, () => {
     const url = `http://localhost:${PORT}`;
+    const provider = getProvider();
     console.log(`\nScholarship Case Desk running at ${url}`);
-    console.log(`Model: ${process.env.CLAUDE_MODEL || 'claude-sonnet-5'}`);
+    console.log(`AI provider: ${provider ? provider : 'none configured — Automated Pattern Scan only'}`);
     console.log('Press Ctrl+C to stop.\n');
     if (process.stdin.isTTY) openBrowser(url);
   });

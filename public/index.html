@@ -21,7 +21,8 @@
   <nav class="tabs">
     <button class="tab-btn active" data-tab="text"><span class="num">01</span>Submit Text / Listing</button>
     <button class="tab-btn" data-tab="image"><span class="num">02</span>Submit Screenshot</button>
-    <button class="tab-btn" data-tab="guide"><span class="num">03</span>Field Guide</button>
+    <button class="tab-btn" data-tab="contact"><span class="num">03</span>Contact Your School</button>
+    <button class="tab-btn" data-tab="guide"><span class="num">04</span>Field Guide</button>
   </nav>
 
   <!-- TAB 1: TEXT -->
@@ -30,6 +31,24 @@
       <div class="folder-body">
         <div class="folder-label">Evidence — Pasted Text</div>
         <h2>Open a case file</h2>
+
+        <div class="context-row">
+          <div class="context-field">
+            <label for="text-school">School name <span class="optional">(optional, helps the AI review)</span></label>
+            <input type="text" id="text-school" placeholder="e.g. University of Toronto">
+          </div>
+          <div class="context-field">
+            <label for="text-country">Country</label>
+            <select id="text-country">
+              <option value="">Not sure / other</option>
+              <option value="us">United States</option>
+              <option value="ca">Canada</option>
+              <option value="uk">United Kingdom</option>
+              <option value="other">Other</option>
+            </select>
+          </div>
+        </div>
+
         <textarea id="text-input" placeholder="Paste the scholarship listing, email, or message here — the more of the original wording, the better the read. Include any sender info, requirements, and deadlines mentioned."></textarea>
         <p class="hint">This tool can't browse a URL for you — copy the actual page or email text in rather than just pasting a link.</p>
         <div class="btn-row">
@@ -51,6 +70,24 @@
       <div class="folder-body">
         <div class="folder-label">Evidence — Screenshot / Photo</div>
         <h2>Submit a screenshot</h2>
+
+        <div class="context-row">
+          <div class="context-field">
+            <label for="image-school">School name <span class="optional">(optional, helps the AI review)</span></label>
+            <input type="text" id="image-school" placeholder="e.g. University of Toronto">
+          </div>
+          <div class="context-field">
+            <label for="image-country">Country</label>
+            <select id="image-country">
+              <option value="">Not sure / other</option>
+              <option value="us">United States</option>
+              <option value="ca">Canada</option>
+              <option value="uk">United Kingdom</option>
+              <option value="other">Other</option>
+            </select>
+          </div>
+        </div>
+
         <div class="dropzone" id="dropzone">
           <div class="dz-title">Click to choose an image</div>
           <p>A screenshot of the email, text message, or webpage. JPG or PNG.</p>
@@ -70,7 +107,39 @@
     </div>
   </section>
 
-  <!-- TAB 3: FIELD GUIDE -->
+  <!-- TAB 3: CONTACT YOUR SCHOOL -->
+  <section class="panel" id="panel-contact">
+    <div class="folder">
+      <div class="folder-body">
+        <div class="folder-label">Verification</div>
+        <h2>Contact your school directly</h2>
+        <p style="font-size:13.5px;color:var(--text-muted);line-height:1.6;margin:-8px 0 18px;">The single most reliable way to check a scholarship: call or email your school using a number or address you found on <strong>your school's own official website</strong> — never one provided in the scholarship offer itself.</p>
+
+        <div class="context-row">
+          <div class="context-field" style="flex:2;">
+            <label for="contact-school">School name</label>
+            <input type="text" id="contact-school" placeholder="e.g. McGill University">
+          </div>
+          <div class="context-field">
+            <label for="contact-country">Country</label>
+            <select id="contact-country">
+              <option value="us">United States</option>
+              <option value="ca">Canada</option>
+              <option value="uk">United Kingdom</option>
+              <option value="other">Other</option>
+            </select>
+          </div>
+        </div>
+        <div class="btn-row">
+          <button class="btn" id="contact-find-btn">Find Contacts</button>
+        </div>
+
+        <div id="contact-results"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- TAB 4: FIELD GUIDE -->
   <section class="panel" id="panel-guide">
     <div class="folder">
       <div class="folder-body">
@@ -114,7 +183,7 @@
 
         <div class="report-box">
           <h3>If you've spotted a scam</h3>
-          <p>Report it to the FTC at <strong>reportfraud.ftc.gov</strong>, and let your school's financial aid office know so they can warn other students.</p>
+          <p>Report it to the FTC at <strong>reportfraud.ftc.gov</strong> (US), the <strong>Canadian Anti-Fraud Centre</strong> (Canada), or <strong>Action Fraud</strong> (UK) — and let your school's financial aid office know so they can warn other students.</p>
           <p>If you already shared bank or card details, contact your bank immediately to flag possible fraud.</p>
         </div>
 
@@ -129,6 +198,7 @@
 </div>
 
 <script src="rules.js"></script>
+<script src="school-directory.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

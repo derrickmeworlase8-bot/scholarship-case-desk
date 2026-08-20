@@ -145,6 +145,39 @@ textarea:focus{outline:2px solid var(--stamp-green);outline-offset:1px;}
 
 .hint{font-size:12.5px;color:var(--text-muted);margin-top:8px;line-height:1.5;}
 
+.context-row{display:flex;gap:14px;margin-bottom:16px;flex-wrap:wrap;}
+.context-field{flex:1;min-width:180px;}
+.context-field label{
+  display:block;font-family:'JetBrains Mono',monospace;font-size:11px;
+  text-transform:uppercase;letter-spacing:0.06em;color:var(--text-muted);margin-bottom:6px;
+}
+.context-field label .optional{text-transform:none;letter-spacing:0;font-style:italic;}
+.context-field input, .context-field select{
+  width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:4px;
+  background:#FFFDF8;color:var(--text-ink);font-family:'Inter',sans-serif;font-size:13.5px;
+}
+.context-field input:focus, .context-field select:focus{outline:2px solid var(--stamp-green);outline-offset:1px;}
+
+.school-card{
+  border:1px solid var(--line);border-radius:5px;padding:16px 18px;margin-top:18px;background:#FFFDF8;
+}
+.school-card .name{font-family:'Fraunces',serif;font-size:16px;color:var(--text-ink);margin-bottom:8px;}
+.school-card a.school-link{
+  display:inline-block;font-family:'JetBrains Mono',monospace;font-size:12.5px;
+  color:var(--stamp-green);text-decoration:none;border-bottom:1px solid rgba(47,125,92,0.4);
+}
+.school-card a.school-link:hover{border-bottom-color:var(--stamp-green);}
+.school-card .verify-note{font-size:12px;color:var(--text-muted);margin-top:10px;line-height:1.5;}
+
+.search-links{display:flex;gap:10px;margin-top:14px;flex-wrap:wrap;}
+.search-links a{
+  font-family:'JetBrains Mono',monospace;font-size:12.5px;text-transform:uppercase;letter-spacing:0.03em;
+  border:1px solid var(--line);border-radius:3px;padding:10px 16px;color:var(--text-ink);text-decoration:none;
+  background:#FFFDF8;
+}
+.search-links a:hover{border-color:var(--stamp-amber);}
+
+
 .btn{
   font-family:'JetBrains Mono',monospace;
   font-size:13px;

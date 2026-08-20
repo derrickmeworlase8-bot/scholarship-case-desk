@@ -1,7 +1,9 @@
 # Blueprint for Render's "New > Blueprint" one-click deploy.
 # Push this project to a GitHub repo, then point Render at it — it will read
-# this file and create the service automatically. You'll just be asked to
-# paste in ANTHROPIC_API_KEY (and optionally ADMIN_KEY) in Render's dashboard.
+# this file and create the service automatically. Fill in EITHER
+# GROQ_API_KEY (free) OR ANTHROPIC_API_KEY (paid) in Render's dashboard —
+# you don't need both. Leave everything blank to deploy with the Automated
+# Pattern Scan only, no AI review, and add a key later.
 # Double-check the current Blueprint spec at https://render.com/docs/blueprint-spec
 # in case Render has changed the format since this was written.
 services:
@@ -12,11 +14,15 @@ services:
     buildCommand: ""
     startCommand: "node server.js"
     envVars:
+      - key: GROQ_API_KEY
+        sync: false
       - key: ANTHROPIC_API_KEY
         sync: false
       - key: ADMIN_KEY
         sync: false
       - key: CLAUDE_MODEL
         value: claude-sonnet-5
+      - key: GROQ_MODEL
+        value: llama-3.3-70b-versatile
       - key: LOG_CASES
         value: "true"
